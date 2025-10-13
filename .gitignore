@@ -1,0 +1,10 @@
+# Dritt
+amounts/amounts_*.json
+prices/prices_*.json
+schedules/schedules_*.json
+schedules/schedules_*.json
+transactions/transactions_*.json
+workers.jsonl
+supplier_prices.json
+
+.DS_STORE
