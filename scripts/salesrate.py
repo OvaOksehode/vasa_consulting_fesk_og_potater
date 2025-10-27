@@ -37,25 +37,34 @@ def generate_salesrate_figure(week_num: int):
     for product, stock in stock_data.items():
         daily_sales = sales_by_product[product]
         total = sum(daily_sales)
-        # Determine stockout day
         running = 0
         stockout_day = None
+
         for i, amt in enumerate(daily_sales, start=1):
             running += amt
             if running >= stock:
                 stockout_day = i
                 break
 
+        # Determine which days to include in average
         if stockout_day is None:
             sold_before_stockout = total
             days_counted = 7
         else:
+            # Include stockout day if its sales > previous day
             if stockout_day == 1:
                 sold_before_stockout = total
                 days_counted = 1
             else:
-                sold_before_stockout = sum(daily_sales[:stockout_day-1])
-                days_counted = stockout_day - 1
+                prev_day_sales = daily_sales[stockout_day - 2]
+                stockout_sales = daily_sales[stockout_day - 1]
+                if stockout_sales > prev_day_sales:
+                    sold_before_stockout = sum(daily_sales[:stockout_day])
+                    days_counted = stockout_day
+                else:
+                    sold_before_stockout = sum(daily_sales[:stockout_day-1])
+                    days_counted = stockout_day - 1
+
         avg_rate = sold_before_stockout / days_counted if days_counted > 0 else sold_before_stockout
 
         products.append(product)
@@ -65,7 +74,6 @@ def generate_salesrate_figure(week_num: int):
 
     # Create Plotly bar chart
     x = list(range(len(products)))
-    width = 0.25
 
     fig = go.Figure()
     fig.add_trace(go.Bar(x=x, y=total_sold, width=0.25, name="Total Sold", marker_color="#1f77b4"))
