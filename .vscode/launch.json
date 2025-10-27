@@ -14,7 +14,8 @@
             "justMyCode": true,
             "env": {
                 "PYTHONUNBUFFERED": "1"
-            }
+            },
+            "python": "${workspaceFolder}/.venv/bin/python"
         }
     ]
 }
