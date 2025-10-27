@@ -11,7 +11,7 @@ from stock_visual import generate_stock_visual_figure
 from salesrate import generate_salesrate_figure
 from revenue_per_product import generate_revenue_per_product_figure
 from profit_loss_pie import generate_profit_loss_pie_figures
-from worker_product_sales import generate_worker_product_sales_figure, load_workers, get_workers_on_schedule
+from worker_product_sales import generate_worker_product_sales_figure, generate_worker_product_pie_figure, load_workers, get_workers_on_schedule
 
 # ---------------------------------------------------------------------
 # File locations
@@ -109,7 +109,7 @@ app.layout = html.Div(
                                         options=[{"label": "All Workers", "value": "all"}],
                                         value="all",
                                         clearable=False,
-                                        style={"width": "300px", "marginRight": "30px"}
+                                        style={"width": "250px", "marginRight": "20px"}
                                     ),
                                     html.Label("Select Week:", style={"marginRight": "10px", "fontWeight": "bold"}),
                                     dcc.Dropdown(
@@ -117,7 +117,18 @@ app.layout = html.Div(
                                         options=[{"label": f"Week {w}", "value": w} for w in AVAILABLE_WEEKS],
                                         value=AVAILABLE_WEEKS[0] if AVAILABLE_WEEKS else None,
                                         clearable=False,
-                                        style={"width": "200px"}
+                                        style={"width": "180px", "marginRight": "20px"}
+                                    ),
+                                    html.Label("Chart Type:", style={"marginRight": "10px", "fontWeight": "bold"}),
+                                    dcc.Dropdown(
+                                        id="worker-chart-type-dropdown",
+                                        options=[
+                                            {"label": "Bar Chart", "value": "bar"},
+                                            {"label": "Pie Chart", "value": "pie"}
+                                        ],
+                                        value="bar",
+                                        clearable=False,
+                                        style={"width": "180px"}
                                     ),
                                 ],
                                 style={"display": "flex", "alignItems": "center", "marginBottom": "10px"}
@@ -235,14 +246,19 @@ def update_weekly_graphs(selected_week, pie_view):
 @app.callback(
     Output("worker-product-graph", "figure"),
     Input("worker-week-dropdown", "value"),
-    Input("worker-dropdown", "value")
+    Input("worker-dropdown", "value"),
+    Input("worker-chart-type-dropdown", "value")
 )
-def update_worker_product_graph(selected_week, selected_worker):
+def update_worker_product_graph(selected_week, selected_worker, chart_type):
     if selected_week is None:
         return go.Figure()
 
     worker_id = None if selected_worker == "all" else selected_worker
-    fig_worker_product = generate_worker_product_sales_figure(selected_week, worker_id)
+    
+    if chart_type == "pie":
+        fig_worker_product = generate_worker_product_pie_figure(selected_week, worker_id)
+    else:
+        fig_worker_product = generate_worker_product_sales_figure(selected_week, worker_id)
     
     return fig_worker_product
 
