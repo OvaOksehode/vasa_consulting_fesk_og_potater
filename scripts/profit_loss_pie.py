@@ -13,9 +13,8 @@ SUPPLIER_FILE = Path("supplier_prices.json")
 def generate_profit_loss_pie_figures(week_number: int):
     """
     Returns two Plotly pie charts:
-    - Products with gross income > 1 → profit
-    - Products with gross income < 1 → loss
-    Gross income formula: (sold_amount * sell_price) / (stock_amount * buy_price)
+    - Products with profit (sales revenue > cost) → profit amounts
+    - Products with loss (sales revenue < cost) → loss amounts
     """
     file_transactions = TRANSACTIONS_DIR / f"transactions_{week_number}.json"
     file_weekly_prices = PRICES_DIR / f"prices_{week_number}.json"
@@ -41,25 +40,22 @@ def generate_profit_loss_pie_figures(week_number: int):
             for merch, amount in zip(t.get("merch_types", []), t.get("merch_amounts", [])):
                 sold_totals[merch] += amount
 
-    # --- Compute gross income per product ---
-    gross_income = {}
+    # --- Compute profit/loss per product ---
+    profit_loss = {}
     for merch, stock_amount in stock_data.items():
         sold_amount = sold_totals.get(merch, 0)
         buy_price = supplier_prices.get(merch, 0)
         sell_price = weekly_prices.get(merch, 0)
 
-        stock_value = stock_amount * buy_price
-        sales_value = sold_amount * sell_price
-
-        if stock_value == 0:
-            continue  # avoid division by zero
-
-        income_ratio = sales_value / stock_value
-        gross_income[merch] = income_ratio
+        cost = stock_amount * buy_price
+        revenue = sold_amount * sell_price
+        
+        net_profit_loss = revenue - cost
+        profit_loss[merch] = net_profit_loss
 
     # --- Split profit vs loss ---
-    profit_data = {k: v for k, v in gross_income.items() if v >= 1}
-    loss_data = {k: -v for k, v in gross_income.items() if v < 1}  # negative values for pie chart
+    profit_data = {k: v for k, v in profit_loss.items() if v > 0}
+    loss_data = {k: abs(v) for k, v in profit_loss.items() if v < 0}
 
     # --- Helper to make pie chart ---
     def make_pie(data, title):
@@ -68,14 +64,14 @@ def generate_profit_loss_pie_figures(week_number: int):
         return go.Figure(
             go.Pie(
                 labels=list(data.keys()),
-                values=[abs(v) for v in data.values()],
+                values=list(data.values()),
                 hole=0.3,
-                hoverinfo="label+percent+value",
+                hovertemplate="<b>%{label}</b><br>Amount: %{value:.2f}<br>Percentage: %{percent}<extra></extra>",
                 textinfo="label+percent"
             )
         ).update_layout(title=title, template="plotly_white")
 
-    fig_profit = make_pie(profit_data, f"Week {week_number} — Gross Profit")
-    fig_loss = make_pie(loss_data, f"Week {week_number} — Gross Loss")
+    fig_profit = make_pie(profit_data, f"Week {week_number} — Total Profit by Product")
+    fig_loss = make_pie(loss_data, f"Week {week_number} — Total Loss by Product")
 
     return fig_profit, fig_loss

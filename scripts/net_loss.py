@@ -8,6 +8,57 @@ TRANSACTIONS_DIR = Path("transactions")
 PRICES_DIR = Path("prices")
 AMOUNTS_DIR = Path("amounts")
 SUPPLIER_FILE = Path("supplier_prices.json")
+WORKERS_FILE = Path("workers/workers.jsonl")
+SCHEDULES_DIR = Path("schedules")
+
+
+def load_workers():
+    """Load worker data from JSONL file and return a dict mapping worker_id to salary."""
+    workers = {}
+    try:
+        with open(WORKERS_FILE, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    import json
+                    worker_data = json.loads(line)
+                    workers[worker_data["worker_id"]] = worker_data["salary"]
+                except json.JSONDecodeError:
+                    continue
+    except FileNotFoundError:
+        print(f"Warning: Workers file not found: {WORKERS_FILE}")
+    return workers
+
+
+def get_weekly_salary_cost(week_number: int, workers: dict):
+    """Calculate total weekly salary cost for workers scheduled that week."""
+    file_schedule = SCHEDULES_DIR / f"schedules_{week_number}.json"
+    total_salary = 0
+    
+    try:
+        import json
+        with open(file_schedule, "r") as f:
+            schedule = json.load(f)
+        
+        # Get unique workers who were scheduled this week
+        scheduled_workers = set()
+        for day_schedule in schedule.values():
+            for shift in day_schedule:
+                if "worker_id" in shift:
+                    scheduled_workers.add(shift["worker_id"])
+        
+        # Sum up their salaries
+        for worker_id in scheduled_workers:
+            if worker_id in workers:
+                # Salary is weekly, so we can just add it
+                total_salary += workers[worker_id]
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    
+    return total_salary
+
 
 def generate_total_profit_figure():
     """Generate Plotly figure showing weekly and cumulative profit/loss with colored shading."""
@@ -16,6 +67,9 @@ def generate_total_profit_figure():
     
     with open(SUPPLIER_FILE) as f:
         supplier_prices = json.load(f)
+    
+    # Load worker salaries
+    workers = load_workers()
 
     weeks = sorted(int(p.stem.split("_")[1]) for p in TRANSACTIONS_DIR.glob("transactions_*.json"))
     weekly_profits = []
@@ -49,9 +103,13 @@ def generate_total_profit_figure():
             sold_totals.get(merch, 0) * weekly_prices.get(merch, 0) - stock_data.get(merch, 0) * supplier_prices.get(merch, 0)
             for merch in stock_data
         )
+        
+        # Subtract weekly salary costs
+        weekly_salary_cost = get_weekly_salary_cost(week, workers)
+        net_weekly = total_weekly - weekly_salary_cost
 
-        weekly_profits.append(total_weekly)
-        cumulative += total_weekly
+        weekly_profits.append(net_weekly)
+        cumulative += net_weekly
         cumulative_profits.append(cumulative)
 
     # Build figure
@@ -92,9 +150,9 @@ def generate_total_profit_figure():
         ))
 
     fig.update_layout(
-        title="Weekly & Cumulative Net Profit/Loss",
+        title="Weekly & Cumulative Net Profit/Loss (including salary costs)",
         xaxis_title="Week Number",
-        yaxis_title="Profit (kr)",
+        yaxis_title="Net Profit (kr)",
         template="plotly_white",
         legend=dict(orientation="h")
     )
@@ -108,6 +166,9 @@ def calculate_cumulative_profits():
 
     with open(SUPPLIER_FILE, "r") as f:
         supplier_prices = json.load(f)
+    
+    # Load worker salaries
+    workers = load_workers()
 
     weeks = sorted(int(p.stem.split("_")[1]) for p in TRANSACTIONS_DIR.glob("transactions_*.json"))
     cumulative_profits = []
@@ -141,8 +202,12 @@ def calculate_cumulative_profits():
             buy_price = supplier_prices.get(merch, 0)
             sell_price = weekly_prices.get(merch, 0)
             weekly_profit += sold_amount * sell_price - stock_amount * buy_price
+        
+        # Subtract weekly salary costs
+        weekly_salary_cost = get_weekly_salary_cost(week, workers)
+        net_weekly_profit = weekly_profit - weekly_salary_cost
 
-        running_total += weekly_profit
+        running_total += net_weekly_profit
         cumulative_profits.append((week, running_total))
 
     return cumulative_profits
