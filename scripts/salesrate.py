@@ -69,7 +69,7 @@ def generate_salesrate_figure(week_num: int):
 
         products.append(product)
         total_sold.append(total)
-        estimated_weekly.append(avg_rate * 7)
+        estimated_weekly.append(avg_rate * 6.5)
         stock_amount.append(stock)
 
     # Create Plotly bar chart
