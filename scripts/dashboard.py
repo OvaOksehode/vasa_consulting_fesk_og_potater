@@ -306,4 +306,4 @@ def update_worker_product_graph(selected_week, selected_worker, chart_type):
 # Run app
 # ---------------------------------------------------------------------
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=False, host="0.0.0.0")
